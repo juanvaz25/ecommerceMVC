@@ -1,0 +1,167 @@
+## ==============================================================================
+## .gitignore - EComerce (.NET 10 / ASP.NET Core)
+## ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Archivos de configuracion y datos sensibles (Credenciales y BD)
+# ------------------------------------------------------------------------------
+# Proteccion de cadenas de conexion y credenciales de entorno especifico
+appsettings.Development.json
+appsettings.Production.json
+appsettings.Staging.json
+appsettings.*.local.json
+appsettings.local.json
+appsettings.secrets.json
+
+# Archivos de User Secrets (ASP.NET Core)
+secrets.json
+**/UserSecrets/
+
+# Variables de entorno locales
+.env
+.env.*
+!.env.example
+
+# Archivos de base de datos locales
+*.mdf
+*.ldf
+*.ndf
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# Certificados y llaves privadas
+*.pfx
+*.p12
+*.cer
+*.crt
+*.pem
+*.key
+*.pub
+
+# ------------------------------------------------------------------------------
+# Compilacion y artefactos generados (.NET)
+# ------------------------------------------------------------------------------
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rms/
+[Aa]rm64/
+build/
+dist/
+
+# ------------------------------------------------------------------------------
+# IDE y editores de codigo
+# ------------------------------------------------------------------------------
+# Visual Studio
+.vs/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.sln.docstates
+*.VisualState.xml
+Generated\ Files/
+*_i.c
+*_p.c
+*_h.h
+*.ilk
+*.meta
+*.obj
+*.iobj
+*.pch
+*.pdb
+*.ipdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_wpftmp.csproj
+*.log
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.ide
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/
+*.code-workspace
+
+# JetBrains Rider / ReSharper
+.idea/
+*.sln.DotSettings
+*.sln.DotSettings.user
+_ReSharper*/
+
+# ------------------------------------------------------------------------------
+# Herramientas de pruebas y cobertura
+# ------------------------------------------------------------------------------
+TestResults/
+[Tt]est[Rr]esults/
+coverage/
+*.coverage
+*.coveragexml
+
+# ------------------------------------------------------------------------------
+# Logs y diagnosticos
+# ------------------------------------------------------------------------------
+*.log
+logs/
+Log/
+LogFiles/
+
+# ------------------------------------------------------------------------------
+# Herramientas de Entity Framework Core
+# ------------------------------------------------------------------------------
+*.migration.log
+
+# ------------------------------------------------------------------------------
+# Paquetes NuGet
+# ------------------------------------------------------------------------------
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ------------------------------------------------------------------------------
+# Sistema Operativo
+# ------------------------------------------------------------------------------
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Linux
+*~
+.directory

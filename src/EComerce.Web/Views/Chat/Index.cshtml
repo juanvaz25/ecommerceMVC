@@ -1,0 +1,184 @@
+@using EComerce.Web.Models
+@{
+    ViewData["Title"] = "Chat";
+    var users = ViewBag.Users as IEnumerable<UserSummaryViewModel> ?? Enumerable.Empty<UserSummaryViewModel>();
+    var currentUserId = (string)ViewBag.CurrentUserId;
+}
+
+<div class="chat-container d-flex" style="height: calc(100vh - 130px); gap: 0;">
+
+    <!-- Panel izquierdo: lista de usuarios -->
+    <div class="chat-sidebar border-end bg-light" style="width:280px; min-width:220px; overflow-y:auto;">
+        <div class="p-3 border-bottom fw-bold text-secondary small text-uppercase">
+            💬 Usuarios
+        </div>
+        <div id="usersList">
+            @foreach (var u in users)
+            {
+                <div class="user-item d-flex align-items-center p-3 border-bottom"
+                     data-userid="@u.Id"
+                     onclick="openChat('@u.Id', '@Html.Raw(u.DisplayName.Replace("'", "\\'"))')">
+                    <div class="avatar-circle me-2">@u.Initial</div>
+                    <div class="overflow-hidden">
+                        <div class="fw-semibold small text-truncate">@u.DisplayName</div>
+                        <div class="text-muted text-truncate" style="font-size:0.72rem;">@u.Email</div>
+                    </div>
+                    <span class="badge bg-danger ms-auto d-none unread-badge" id="badge-@u.Id"></span>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Panel derecho: conversación activa -->
+    <div class="chat-main flex-grow-1 d-flex flex-column">
+        <!-- Header -->
+        <div id="chatHeader" class="p-3 border-bottom bg-white d-flex align-items-center" style="min-height:61px;">
+            <span class="text-muted small" id="chatHeaderText">← Seleccioná un usuario para chatear</span>
+        </div>
+
+        <!-- Mensajes -->
+        <div id="chatMessages" class="flex-grow-1 overflow-auto p-4 bg-white" style="display:flex; flex-direction:column; gap:8px;">
+        </div>
+
+        <!-- Input -->
+        <div class="p-3 border-top bg-white" id="chatInputArea" style="display:none;">
+            <div class="input-group">
+                <input type="text" id="messageInput" class="form-control" placeholder="Escribí un mensaje..." maxlength="2000"
+                       onkeydown="if(event.key==='Enter') sendMessage()" />
+                <button class="btn btn-primary" onclick="sendMessage()">
+                    &#128394; Enviar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .chat-container { font-family: 'Segoe UI', sans-serif; }
+    .user-item { cursor: pointer; transition: background .15s; }
+    .user-item:hover, .user-item.active { background: #e8f0fe; }
+    .avatar-circle {
+        width: 36px; height: 36px; border-radius: 50%;
+        background: #4f46e5; color: white;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 0.9rem; flex-shrink: 0;
+    }
+    .msg-bubble {
+        max-width: 65%; padding: 10px 14px; border-radius: 18px;
+        font-size: 0.9rem; line-height: 1.4; word-break: break-word;
+    }
+    .msg-mine  { background: #4f46e5; color: white; border-bottom-right-radius: 4px; align-self: flex-end; }
+    .msg-other { background: #f1f1f1; color: #222;  border-bottom-left-radius: 4px;  align-self: flex-start; }
+    .msg-time  { font-size: 0.68rem; opacity: .65; margin-top: 3px; }
+    .msg-row   { display: flex; flex-direction: column; }
+    .msg-row.mine  { align-items: flex-end; }
+    .msg-row.other { align-items: flex-start; }
+</style>
+
+@section Scripts {
+    <script src="~/lib/microsoft-signalr/dist/browser/signalr.min.js"></script>
+    <script>
+        const currentUserId = "@currentUserId";
+        let activeReceiverId = null;
+        let connection = null;
+
+        // ── Conexión SignalR ──────────────────────────────────────────────────
+        async function startSignalR() {
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl("/hubs/chat")
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on("ReceiveMessage", msg => {
+                if (msg.senderId === activeReceiverId) {
+                    appendMessage(msg, false);
+                } else {
+                    // Incrementar badge del sender
+                    const badge = document.getElementById("badge-" + msg.senderId);
+                    if (badge) {
+                        badge.classList.remove("d-none");
+                        badge.textContent = (parseInt(badge.textContent || "0") + 1).toString();
+                    }
+                }
+            });
+
+            connection.on("MessageSent", msg => appendMessage(msg, true));
+            connection.on("MessagesRead", senderId => console.log("Mensajes leídos por:", senderId));
+            connection.on("Error", err => console.error("Hub error:", err));
+
+            try {
+                await connection.start();
+                console.log("✅ SignalR conectado");
+            } catch (e) {
+                console.error("Error conectando SignalR:", e);
+            }
+        }
+
+        // ── Abrir conversación ────────────────────────────────────────────────
+        async function openChat(userId, userName) {
+            activeReceiverId = userId;
+
+            document.querySelectorAll(".user-item").forEach(el => el.classList.remove("active"));
+            const item = document.querySelector(`[data-userid="${userId}"]`);
+            if (item) item.classList.add("active");
+
+            document.getElementById("chatHeaderText").innerHTML =
+                `<div class="avatar-circle me-2">${userName.charAt(0).toUpperCase()}</div> <strong>${escapeHtml(userName)}</strong>`;
+            document.getElementById("chatInputArea").style.display = "";
+
+            const messagesEl = document.getElementById("chatMessages");
+            messagesEl.innerHTML = '<div class="text-center text-muted small py-4">Cargando...</div>';
+
+            const resp = await fetch(`/Chat/Conversation?receiverId=${encodeURIComponent(userId)}`);
+            if (!resp.ok) { messagesEl.innerHTML = '<div class="text-danger text-center py-4">Error al cargar mensajes.</div>'; return; }
+
+            const msgs = await resp.json();
+            messagesEl.innerHTML = "";
+            msgs.forEach(m => appendMessage(m, m.senderId === currentUserId));
+            scrollBottom();
+
+            // Limpiar badge
+            const badge = document.getElementById("badge-" + userId);
+            if (badge) { badge.textContent = ""; badge.classList.add("d-none"); }
+
+            document.getElementById("messageInput").focus();
+        }
+
+        // ── Enviar mensaje ────────────────────────────────────────────────────
+        async function sendMessage() {
+            const input = document.getElementById("messageInput");
+            const content = input.value.trim();
+            if (!content || !activeReceiverId || !connection) return;
+            input.value = "";
+            await connection.invoke("SendPrivateMessage", activeReceiverId, content);
+        }
+
+        // ── Renderizar burbuja ────────────────────────────────────────────────
+        function appendMessage(msg, isMine) {
+            const container = document.getElementById("chatMessages");
+            const time = new Date(msg.createdAt).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+            const row = document.createElement("div");
+            row.className = `msg-row ${isMine ? "mine" : "other"}`;
+            row.innerHTML = `
+                <div class="msg-bubble ${isMine ? "msg-mine" : "msg-other"}">${escapeHtml(msg.content)}</div>
+                <div class="msg-time">${time}${isMine && msg.isRead ? " ✓✓" : ""}</div>`;
+            container.appendChild(row);
+            scrollBottom();
+        }
+
+        function scrollBottom() {
+            const c = document.getElementById("chatMessages");
+            c.scrollTop = c.scrollHeight;
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        }
+
+        startSignalR();
+    </script>
+}
